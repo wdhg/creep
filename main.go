@@ -9,6 +9,33 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+const (
+	linksQuery  = "a, link"
+	href        = "href"
+	urlSelector = `[a-zA-Z]+:\/\/[a-zA-Z\.-]+(\/[\S)]*)?`
+)
+
+func isURL(address string) bool {
+	matches, err := regexp.MatchString(urlSelector, address)
+	return err == nil && matches
+}
+
+func findURLs(doc *goquery.Document) []string {
+	links := []string{}
+	doc.Find(linksQuery).Each(func(_ int, s *goquery.Selection) {
+		link, exists := s.Attr(href)
+		if !exists {
+			return
+		}
+		if isURL(link) {
+			links = append(links, link)
+		} else {
+			links = append(links, fmt.Sprintf("%s/%s", doc.Url.String(), link))
+		}
+	})
+	return links
+}
+
 func scrapeURLs(address string) ([]string, error) {
 	res, err := http.Get(address)
 	if err != nil {
@@ -18,23 +45,7 @@ func scrapeURLs(address string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	links := []string{}
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
-		link, exists := s.Attr("href")
-		if !exists {
-			return
-		}
-		matches, err := regexp.MatchString(`https:\/\/[\S]*`, link)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if matches {
-			links = append(links, link)
-		} else {
-			links = append(links, fmt.Sprintf("%s/%s", address, link))
-		}
-	})
-	return links, nil
+	return findURLs(doc), nil
 }
 
 func main() {

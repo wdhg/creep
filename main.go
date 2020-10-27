@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +14,12 @@ const (
 	linksQuery  = "a, link"
 	href        = "href"
 	urlSelector = `[a-zA-Z]+:\/\/[a-zA-Z\.-]+(\/[\S)]*)?`
+)
+
+var (
+	help   = flag.Bool("h", false, "Show help")
+	target = flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
+	count  = flag.Int("n", 100, "Number of urls to scrape")
 )
 
 func isURL(address string) bool {
@@ -49,7 +56,12 @@ func scrapeURLs(address string) ([]string, error) {
 }
 
 func main() {
-	links, err := scrapeURLs("https://news.ycombinator.com")
+	flag.Parse()
+	if *help {
+		flag.Usage()
+		return
+	}
+	links, err := scrapeURLs(*target)
 	if err != nil {
 		log.Fatal(err)
 	}

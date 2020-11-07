@@ -24,10 +24,12 @@ var (
 	start       = flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
 	maxCount    = flag.Int("n", 1000, "Number of urls to scrape")
 	threadCount = flag.Int("tc", 10, "Number of threads")
+	timeout     = flag.Int64("t", 5000, "Timeout for each http request (ms)")
 	logging     = flag.Bool("l", true, "Enable / disable logging")
 )
 
 type Crawler struct {
+	client  http.Client
 	count   int
 	found   map[string]bool
 	logging bool
@@ -35,12 +37,16 @@ type Crawler struct {
 	wg      sync.WaitGroup
 }
 
-func newCrawler() *Crawler {
+func newCrawler(timeout int64, logging bool) *Crawler {
 	return &Crawler{
-		count: 0,
-		found: make(map[string]bool),
-		lock:  sync.Mutex{},
-		wg:    sync.WaitGroup{},
+		client: http.Client{
+			Timeout: time.Duration(timeout) * time.Millisecond,
+		},
+		count:   0,
+		found:   make(map[string]bool),
+		logging: logging,
+		lock:    sync.Mutex{},
+		wg:      sync.WaitGroup{},
 	}
 }
 
@@ -89,13 +95,14 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 }
 
 func (crawler *Crawler) scrape(address string) {
+	defer crawler.wg.Done()
 	crawler.lock.Lock()
 	crawler.found[address] = true
 	crawler.lock.Unlock()
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}
-	res, err := http.Get(address)
+	res, err := crawler.client.Get(address)
 	if err != nil {
 		return
 	}
@@ -104,7 +111,6 @@ func (crawler *Crawler) scrape(address string) {
 		return
 	}
 	crawler.storeAddresses(findAddresses(doc))
-	crawler.wg.Done()
 }
 
 func (crawler *Crawler) scrapeNext() bool {
@@ -141,9 +147,8 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler := newCrawler()
+	crawler := newCrawler(*timeout, *logging)
 	crawler.storeAddress(*start)
-	crawler.logging = *logging
 	startTime := time.Now()
 	for crawler.count < *maxCount {
 		crawler.scrapeBatch(*threadCount)

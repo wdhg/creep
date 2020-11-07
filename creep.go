@@ -27,13 +27,13 @@ type Crawler struct {
 	wg       sync.WaitGroup
 }
 
-func newCrawler(timeout int64, maxCount int, threadCount int, logging bool) *Crawler {
+func newCrawler(timeout int64, maxCount int, queueSize int, logging bool) *Crawler {
 	return &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
 		maxCount: maxCount,
-		store:    newAddressStore(threadCount),
+		store:    newAddressStore(queueSize),
 		logging:  logging,
 		lock:     sync.Mutex{},
 		wg:       sync.WaitGroup{},
@@ -96,9 +96,9 @@ func (crawler *Crawler) crawl() {
 	}
 }
 
-func (crawler *Crawler) run() {
-	crawler.wg.Add(*threadCount)
-	for i := 0; i < *threadCount; i++ {
+func (crawler *Crawler) run(threadCount int) {
+	crawler.wg.Add(threadCount)
+	for i := 0; i < threadCount; i++ {
 		go crawler.crawl()
 	}
 	crawler.wg.Wait()

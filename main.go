@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"time"
 )
@@ -36,7 +35,7 @@ func main() {
 		log.Printf("Found %d urls in %.3f seconds\n", crawler.count, time.Since(startTime).Seconds())
 	}
 	if *output == "" {
-		fmt.Println(crawler.dump())
+		crawler.dumpToTerminal()
 	} else {
 		err := crawler.dumpToFile(*output)
 		if err != nil {

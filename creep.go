@@ -130,7 +130,7 @@ func (crawler *Crawler) scrapeBatch(threads int) {
 	crawler.wg.Wait()
 }
 
-func (crawler *Crawler) dump() string {
+func (crawler *Crawler) dumpAddresses() string {
 	builder := strings.Builder{}
 	for address := range crawler.found {
 		builder.WriteString(address)
@@ -139,12 +139,16 @@ func (crawler *Crawler) dump() string {
 	return builder.String()
 }
 
+func (crawler *Crawler) dumpToTerminal() {
+	fmt.Printf(crawler.dumpAddresses())
+}
+
 func (crawler *Crawler) dumpToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(crawler.dump())
+	_, err = f.WriteString(crawler.dumpAddresses())
 	if err != nil {
 		return err
 	}

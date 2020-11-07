@@ -86,9 +86,6 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 
 func (crawler *Crawler) scrape(address string) {
 	defer crawler.wg.Done()
-	crawler.lock.Lock()
-	crawler.found[address] = true
-	crawler.lock.Unlock()
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}

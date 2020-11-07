@@ -64,11 +64,11 @@ func findAddresses(doc *goquery.Document) []string {
 		if !exists {
 			return
 		}
-		address, err := sanitiseAddress(rawAddress)
-		if err != nil {
-			return
-		}
-		if isURL(address) {
+		if isURL(rawAddress) {
+			address, err := sanitiseAddress(rawAddress)
+			if err != nil {
+				return
+			}
 			addresses = append(addresses, address)
 		}
 	})

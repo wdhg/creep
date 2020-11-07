@@ -12,7 +12,7 @@ var (
 	maxCount    = flag.Int("n", 1000, "Number of urls to scrape")
 	threadCount = flag.Int("tc", 10, "Number of threads")
 	timeout     = flag.Int64("t", 5000, "Timeout for each http request (ms)")
-	logging     = flag.Bool("l", true, "Enable / disable logging")
+	logging     = flag.Bool("l", false, "Enables logging")
 )
 
 func main() {
@@ -24,6 +24,9 @@ func main() {
 	crawler := newCrawler(*timeout, *logging)
 	crawler.storeAddress(*start)
 	startTime := time.Now()
+	if crawler.logging {
+		log.Printf("Crawling for %d urls...\n", *maxCount)
+	}
 	for crawler.count < *maxCount {
 		crawler.scrapeBatch(*threadCount)
 	}

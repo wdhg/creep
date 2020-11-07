@@ -26,8 +26,8 @@ type Crawler struct {
 	wg      sync.WaitGroup
 }
 
-func newCrawler(timeout int64, queueSize int, logging bool) *Crawler {
-	return &Crawler{
+func newCrawler(start string, timeout int64, queueSize int, logging bool) *Crawler {
+	crawler := &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
@@ -36,6 +36,8 @@ func newCrawler(timeout int64, queueSize int, logging bool) *Crawler {
 		lock:    sync.Mutex{},
 		wg:      sync.WaitGroup{},
 	}
+	crawler.store.add(start)
+	return crawler
 }
 
 // sanitiseAddress removes the query, fragment, and any trailing forward slashes

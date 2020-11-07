@@ -19,8 +19,7 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler := newCrawler(*timeout, *threadCount, *logging)
-	crawler.store.add(*start)
+	crawler := newCrawler(*start, *timeout, *threadCount, *logging)
 	startTime := time.Now()
 	if crawler.logging {
 		log.Printf("Crawling for %d urls...\n", *maxCount)

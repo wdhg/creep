@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,4 +127,13 @@ func (crawler *Crawler) scrapeBatch(threads int) {
 		}
 	}
 	crawler.wg.Wait()
+}
+
+func (crawler *Crawler) dump() string {
+	builder := strings.Builder{}
+	for address := range crawler.found {
+		builder.WriteString(address)
+		builder.WriteString("\n")
+	}
+	return builder.String()
 }

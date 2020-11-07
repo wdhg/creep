@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
 	"time"
 )
 
@@ -13,6 +15,7 @@ var (
 	threadCount = flag.Int("tc", 10, "Number of threads")
 	timeout     = flag.Int64("t", 5000, "Timeout for each http request (ms)")
 	logging     = flag.Bool("l", false, "Enables logging")
+	output      = flag.String("o", "", "Name of output file to write to. If not set will output to terminal")
 )
 
 func main() {
@@ -32,5 +35,22 @@ func main() {
 	}
 	if crawler.logging {
 		log.Printf("Found %d urls in %.3f seconds\n", crawler.count, time.Since(startTime).Seconds())
+	}
+	addressDump := crawler.dump()
+	if *output == "" {
+		fmt.Println(addressDump)
+	} else {
+		f, err := os.Create(*output)
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = f.WriteString(addressDump)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = f.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

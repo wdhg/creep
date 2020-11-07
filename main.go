@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -76,9 +77,6 @@ func (crawler *Crawler) storeAddress(address string) {
 	crawler.lock.Lock()
 	defer crawler.lock.Unlock()
 	if _, ok := crawler.found[address]; !ok {
-		if crawler.logging {
-			// log.Printf("Found address %s\n", address)
-		}
 		crawler.found[address] = false
 		crawler.count++
 	}
@@ -146,10 +144,11 @@ func main() {
 	crawler := newCrawler()
 	crawler.storeAddress(*start)
 	crawler.logging = *logging
+	startTime := time.Now()
 	for crawler.count < *maxCount {
 		crawler.scrapeBatch(*threadCount)
-		if crawler.logging {
-			log.Printf("Found %d urls\n", crawler.count)
-		}
+	}
+	if crawler.logging {
+		log.Printf("Found %d urls in %.3f seconds\n", crawler.count, time.Since(startTime).Seconds())
 	}
 }

@@ -19,24 +19,22 @@ var (
 )
 
 type Crawler struct {
-	client   http.Client
-	maxCount int
-	store    *addressStore
-	logging  bool
-	lock     sync.Mutex
-	wg       sync.WaitGroup
+	client  http.Client
+	store   *addressStore
+	logging bool
+	lock    sync.Mutex
+	wg      sync.WaitGroup
 }
 
-func newCrawler(timeout int64, maxCount int, queueSize int, logging bool) *Crawler {
+func newCrawler(timeout int64, queueSize int, logging bool) *Crawler {
 	return &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		maxCount: maxCount,
-		store:    newAddressStore(queueSize),
-		logging:  logging,
-		lock:     sync.Mutex{},
-		wg:       sync.WaitGroup{},
+		store:   newAddressStore(queueSize),
+		logging: logging,
+		lock:    sync.Mutex{},
+		wg:      sync.WaitGroup{},
 	}
 }
 
@@ -89,17 +87,17 @@ func (crawler *Crawler) scrapeNext() {
 	crawler.storeAddresses(findAddresses(string(data)))
 }
 
-func (crawler *Crawler) crawl() {
+func (crawler *Crawler) crawl(maxCount int) {
 	defer crawler.wg.Done()
-	for crawler.store.count < crawler.maxCount {
+	for crawler.store.count < maxCount {
 		crawler.scrapeNext()
 	}
 }
 
-func (crawler *Crawler) run(threadCount int) {
+func (crawler *Crawler) run(maxCount int, threadCount int) {
 	crawler.wg.Add(threadCount)
 	for i := 0; i < threadCount; i++ {
-		go crawler.crawl()
+		go crawler.crawl(maxCount)
 	}
 	crawler.wg.Wait()
 }

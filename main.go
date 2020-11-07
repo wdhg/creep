@@ -22,13 +22,13 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler := newCrawler(*timeout, *maxCount, *threadCount, *logging)
+	crawler := newCrawler(*timeout, *threadCount, *logging)
 	crawler.store.add(*start)
 	startTime := time.Now()
 	if crawler.logging {
 		log.Printf("Crawling for %d urls...\n", *maxCount)
 	}
-	crawler.run(*threadCount)
+	crawler.run(*maxCount, *threadCount)
 	if crawler.logging {
 		log.Printf("Found %d urls in %.3f seconds\n", crawler.store.count, time.Since(startTime).Seconds())
 	}

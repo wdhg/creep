@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -17,42 +19,122 @@ const (
 )
 
 var (
-	help   = flag.Bool("h", false, "Show help")
-	target = flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
-	count  = flag.Int("n", 100, "Number of urls to scrape")
+	help        = flag.Bool("h", false, "Show help")
+	start       = flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
+	maxCount    = flag.Int("n", 1000, "Number of urls to scrape")
+	threadCount = flag.Int("tc", 10, "Number of threads")
+	logging     = flag.Bool("l", true, "Enable / disable logging")
 )
+
+type Crawler struct {
+	count   int
+	found   map[string]bool
+	logging bool
+	lock    sync.Mutex
+	wg      sync.WaitGroup
+}
+
+func newCrawler() *Crawler {
+	return &Crawler{
+		count: 0,
+		found: make(map[string]bool),
+		lock:  sync.Mutex{},
+		wg:    sync.WaitGroup{},
+	}
+}
 
 func isURL(address string) bool {
 	matches, err := regexp.MatchString(urlSelector, address)
 	return err == nil && matches
 }
 
-func findURLs(doc *goquery.Document) []string {
-	links := []string{}
+func findAddresses(doc *goquery.Document) []string {
+	addresses := []string{}
 	doc.Find(linksQuery).Each(func(_ int, s *goquery.Selection) {
-		link, exists := s.Attr(href)
+		address, exists := s.Attr(href)
 		if !exists {
 			return
 		}
-		if isURL(link) {
-			links = append(links, link)
+		if isURL(address) {
+			addresses = append(addresses, address)
 		} else {
-			links = append(links, fmt.Sprintf("%s/%s", doc.Url.String(), link))
+			addresses = append(addresses, fmt.Sprintf("%s/%s", doc.Url.String(), address))
 		}
 	})
-	return links
+	return addresses
 }
 
-func scrapeURLs(address string) ([]string, error) {
+func getHostname(address string) (string, error) {
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+	return u.Hostname(), nil
+}
+
+func (crawler *Crawler) storeAddress(address string) {
+	crawler.lock.Lock()
+	defer crawler.lock.Unlock()
+	if _, ok := crawler.found[address]; !ok {
+		if crawler.logging {
+			// log.Printf("Found address %s\n", address)
+		}
+		crawler.found[address] = false
+		crawler.count++
+	}
+}
+
+func (crawler *Crawler) storeAddresses(addresses []string) {
+	for _, address := range addresses {
+		crawler.storeAddress(address)
+	}
+}
+
+func (crawler *Crawler) scrape(address string) {
+	crawler.lock.Lock()
+	crawler.found[address] = true
+	crawler.lock.Unlock()
+	if crawler.logging {
+		log.Printf("Scraping %s...\n", address)
+	}
 	res, err := http.Get(address)
 	if err != nil {
-		return nil, err
+		return
 	}
 	doc, err := goquery.NewDocumentFromResponse(res)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return findURLs(doc), nil
+	crawler.storeAddresses(findAddresses(doc))
+	crawler.wg.Done()
+}
+
+func (crawler *Crawler) scrapeNext() bool {
+	crawler.lock.Lock()
+	defer crawler.lock.Unlock()
+	for address, hasBeenScraped := range crawler.found {
+		if !hasBeenScraped {
+			crawler.found[address] = true
+			go crawler.scrape(address)
+			return true
+		}
+	}
+	return false
+}
+
+func (crawler *Crawler) scrapeBatch(threads int) {
+	if crawler.logging {
+		log.Println("Running batch")
+		defer log.Println("Batch done")
+	}
+	crawler.wg.Add(threads)
+	for i := 0; i < threads; i++ {
+		ok := crawler.scrapeNext()
+		if !ok {
+			crawler.wg.Done()
+		}
+	}
+	crawler.wg.Wait()
 }
 
 func main() {
@@ -61,11 +143,13 @@ func main() {
 		flag.Usage()
 		return
 	}
-	links, err := scrapeURLs(*target)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, v := range links {
-		fmt.Println(v)
+	crawler := newCrawler()
+	crawler.storeAddress(*start)
+	crawler.logging = *logging
+	for crawler.count < *maxCount {
+		crawler.scrapeBatch(*threadCount)
+		if crawler.logging {
+			log.Printf("Found %d urls\n", crawler.count)
+		}
 	}
 }

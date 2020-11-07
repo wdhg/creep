@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"time"
 )
 
@@ -36,19 +35,10 @@ func main() {
 	if crawler.logging {
 		log.Printf("Found %d urls in %.3f seconds\n", crawler.count, time.Since(startTime).Seconds())
 	}
-	addressDump := crawler.dump()
 	if *output == "" {
-		fmt.Println(addressDump)
+		fmt.Println(crawler.dump())
 	} else {
-		f, err := os.Create(*output)
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = f.WriteString(addressDump)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = f.Close()
+		err := crawler.dumpToFile(*output)
 		if err != nil {
 			log.Fatal(err)
 		}

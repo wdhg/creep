@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -136,4 +137,20 @@ func (crawler *Crawler) dump() string {
 		builder.WriteString("\n")
 	}
 	return builder.String()
+}
+
+func (crawler *Crawler) dumpToFile(filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(crawler.dump())
+	if err != nil {
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

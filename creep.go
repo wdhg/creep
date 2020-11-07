@@ -44,11 +44,28 @@ func isURL(address string) bool {
 	return err == nil && matches
 }
 
+// sanitiseAddress removes the query and any trailing forward slashes
+func sanitiseAddress(address string) (string, error) {
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+	u.RawQuery = ""
+	for u.Path != "" && u.Path[len(u.Path)-1] == '/' {
+		u.Path = u.Path[0 : len(u.Path)-1]
+	}
+	return u.String(), nil
+}
+
 func findAddresses(doc *goquery.Document) []string {
 	addresses := []string{}
 	doc.Find(linksQuery).Each(func(_ int, s *goquery.Selection) {
-		address, exists := s.Attr(href)
+		rawAddress, exists := s.Attr(href)
 		if !exists {
+			return
+		}
+		address, err := sanitiseAddress(rawAddress)
+		if err != nil {
 			return
 		}
 		if isURL(address) {
@@ -56,14 +73,6 @@ func findAddresses(doc *goquery.Document) []string {
 		}
 	})
 	return addresses
-}
-
-func getHostname(address string) (string, error) {
-	u, err := url.Parse(address)
-	if err != nil {
-		return "", err
-	}
-	return u.Hostname(), nil
 }
 
 func (crawler *Crawler) storeAddresses(addresses []string) {

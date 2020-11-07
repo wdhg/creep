@@ -21,24 +21,26 @@ const (
 )
 
 type Crawler struct {
-	client  http.Client
-	count   int
-	found   map[string]bool
-	logging bool
-	lock    sync.Mutex
-	wg      sync.WaitGroup
+	client   http.Client
+	count    int
+	maxCount int
+	found    map[string]bool
+	logging  bool
+	lock     sync.Mutex
+	wg       sync.WaitGroup
 }
 
-func newCrawler(timeout int64, logging bool) *Crawler {
+func newCrawler(timeout int64, maxCount int, logging bool) *Crawler {
 	return &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		count:   0,
-		found:   make(map[string]bool),
-		logging: logging,
-		lock:    sync.Mutex{},
-		wg:      sync.WaitGroup{},
+		count:    0,
+		maxCount: maxCount,
+		found:    make(map[string]bool),
+		logging:  logging,
+		lock:     sync.Mutex{},
+		wg:       sync.WaitGroup{},
 	}
 }
 
@@ -87,7 +89,6 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 }
 
 func (crawler *Crawler) scrape(address string) {
-	defer crawler.wg.Done()
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}
@@ -102,32 +103,26 @@ func (crawler *Crawler) scrape(address string) {
 	crawler.storeAddresses(findAddresses(doc))
 }
 
-func (crawler *Crawler) scrapeNext() bool {
+func (crawler *Crawler) getNext() (string, bool) {
 	crawler.lock.Lock()
 	defer crawler.lock.Unlock()
 	for address, hasBeenScraped := range crawler.found {
 		if !hasBeenScraped {
 			crawler.found[address] = true
-			go crawler.scrape(address)
-			return true
+			return address, true
 		}
 	}
-	return false
+	return "", false
 }
 
-func (crawler *Crawler) scrapeBatch(threads int) {
-	if crawler.logging {
-		log.Println("Running batch")
-		defer log.Println("Batch done")
-	}
-	crawler.wg.Add(threads)
-	for i := 0; i < threads; i++ {
-		ok := crawler.scrapeNext()
-		if !ok {
-			crawler.wg.Done()
+func (crawler *Crawler) crawl() {
+	defer crawler.wg.Done()
+	for crawler.count < crawler.maxCount {
+		address, ok := crawler.getNext()
+		if ok {
+			crawler.scrape(address)
 		}
 	}
-	crawler.wg.Wait()
 }
 
 func (crawler *Crawler) dumpAddresses() string {

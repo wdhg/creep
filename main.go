@@ -22,26 +22,15 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler := newCrawler(*timeout, *maxCount, *logging)
-	crawler.storeAddress(*start)
+	crawler := newCrawler(*timeout, *maxCount, *threadCount, *logging)
+	crawler.store.add(*start)
 	startTime := time.Now()
 	if crawler.logging {
 		log.Printf("Crawling for %d urls...\n", *maxCount)
 	}
-	crawler.wg.Add(*threadCount)
-	for i := 0; i < *threadCount; i++ {
-		go crawler.crawl()
-	}
-	crawler.wg.Wait()
+	crawler.run()
 	if crawler.logging {
-		log.Printf("Found %d urls in %.3f seconds\n", crawler.count, time.Since(startTime).Seconds())
+		log.Printf("Found %d urls in %.3f seconds\n", crawler.store.count, time.Since(startTime).Seconds())
 	}
-	if *output == "" {
-		crawler.dumpToTerminal()
-	} else {
-		err := crawler.dumpToFile(*output)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	crawler.dump(*output)
 }

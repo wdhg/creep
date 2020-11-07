@@ -1,13 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,22 +19,20 @@ const (
 
 type Crawler struct {
 	client   http.Client
-	count    int
 	maxCount int
-	found    map[string]bool
+	store    *addressStore
 	logging  bool
 	lock     sync.Mutex
 	wg       sync.WaitGroup
 }
 
-func newCrawler(timeout int64, maxCount int, logging bool) *Crawler {
+func newCrawler(timeout int64, maxCount int, threadCount int, logging bool) *Crawler {
 	return &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		count:    0,
 		maxCount: maxCount,
-		found:    make(map[string]bool),
+		store:    newAddressStore(threadCount),
 		logging:  logging,
 		lock:     sync.Mutex{},
 		wg:       sync.WaitGroup{},
@@ -58,8 +53,6 @@ func findAddresses(doc *goquery.Document) []string {
 		}
 		if isURL(address) {
 			addresses = append(addresses, address)
-		} else {
-			addresses = append(addresses, fmt.Sprintf("%s/%s", doc.Url.String(), address))
 		}
 	})
 	return addresses
@@ -73,22 +66,14 @@ func getHostname(address string) (string, error) {
 	return u.Hostname(), nil
 }
 
-func (crawler *Crawler) storeAddress(address string) {
-	crawler.lock.Lock()
-	defer crawler.lock.Unlock()
-	if _, ok := crawler.found[address]; !ok {
-		crawler.found[address] = false
-		crawler.count++
-	}
-}
-
 func (crawler *Crawler) storeAddresses(addresses []string) {
 	for _, address := range addresses {
-		crawler.storeAddress(address)
+		crawler.store.add(address)
 	}
 }
 
-func (crawler *Crawler) scrape(address string) {
+func (crawler *Crawler) scrapeNext() {
+	address := crawler.store.next()
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}
@@ -103,53 +88,29 @@ func (crawler *Crawler) scrape(address string) {
 	crawler.storeAddresses(findAddresses(doc))
 }
 
-func (crawler *Crawler) getNext() (string, bool) {
-	crawler.lock.Lock()
-	defer crawler.lock.Unlock()
-	for address, hasBeenScraped := range crawler.found {
-		if !hasBeenScraped {
-			crawler.found[address] = true
-			return address, true
-		}
-	}
-	return "", false
-}
-
 func (crawler *Crawler) crawl() {
 	defer crawler.wg.Done()
-	for crawler.count < crawler.maxCount {
-		address, ok := crawler.getNext()
-		if ok {
-			crawler.scrape(address)
+	for crawler.store.count < crawler.maxCount {
+		crawler.scrapeNext()
+	}
+}
+
+func (crawler *Crawler) run() {
+	crawler.wg.Add(*threadCount)
+	for i := 0; i < *threadCount; i++ {
+		go crawler.crawl()
+	}
+	crawler.wg.Wait()
+}
+
+func (crawler *Crawler) dump(output string) error {
+	if output == "" {
+		crawler.store.dumpToTerminal()
+	} else {
+		err := crawler.store.dumpToFile(output)
+		if err != nil {
+			return err
 		}
-	}
-}
-
-func (crawler *Crawler) dumpAddresses() string {
-	builder := strings.Builder{}
-	for address := range crawler.found {
-		builder.WriteString(address)
-		builder.WriteString("\n")
-	}
-	return builder.String()
-}
-
-func (crawler *Crawler) dumpToTerminal() {
-	fmt.Printf(crawler.dumpAddresses())
-}
-
-func (crawler *Crawler) dumpToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	_, err = f.WriteString(crawler.dumpAddresses())
-	if err != nil {
-		return err
-	}
-	err = f.Close()
-	if err != nil {
-		return err
 	}
 	return nil
 }

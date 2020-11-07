@@ -22,7 +22,6 @@ type Crawler struct {
 	client  http.Client
 	store   *addressStore
 	logging bool
-	lock    sync.Mutex
 	wg      sync.WaitGroup
 }
 
@@ -33,7 +32,6 @@ func newCrawler(start string, timeout int64, queueSize int, logging bool) *Crawl
 		},
 		store:   newAddressStore(queueSize),
 		logging: logging,
-		lock:    sync.Mutex{},
 		wg:      sync.WaitGroup{},
 	}
 	crawler.store.add(start)

@@ -1,20 +1,21 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sync"
 	"time"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
 const (
-	linksQuery  = "a, link"
-	href        = "href"
-	urlSelector = `[a-zA-Z]+:\/\/[a-zA-Z\.-]+(\/[\S)]*)?`
+	selectorURL = `href=["'](https?:\/\/[a-zA-Z0-9\.\-]+[^"']*)["']`
+)
+
+var (
+	reURL = regexp.MustCompile(selectorURL)
 )
 
 type Crawler struct {
@@ -39,39 +40,29 @@ func newCrawler(timeout int64, maxCount int, threadCount int, logging bool) *Cra
 	}
 }
 
-func isURL(address string) bool {
-	matches, err := regexp.MatchString(urlSelector, address)
-	return err == nil && matches
-}
-
-// sanitiseAddress removes the query and any trailing forward slashes
+// sanitiseAddress removes the query, fragment, and any trailing forward slashes
 func sanitiseAddress(address string) (string, error) {
 	u, err := url.Parse(address)
 	if err != nil {
 		return "", err
 	}
 	u.RawQuery = ""
+	u.RawFragment = ""
 	for u.Path != "" && u.Path[len(u.Path)-1] == '/' {
 		u.Path = u.Path[0 : len(u.Path)-1]
 	}
 	return u.String(), nil
 }
 
-func findAddresses(doc *goquery.Document) []string {
+func findAddresses(html string) []string {
 	addresses := []string{}
-	doc.Find(linksQuery).Each(func(_ int, s *goquery.Selection) {
-		rawAddress, exists := s.Attr(href)
-		if !exists {
-			return
+	for _, submatch := range reURL.FindAllStringSubmatch(html, -1) {
+		address, err := sanitiseAddress(submatch[1])
+		if err != nil {
+			continue
 		}
-		if isURL(rawAddress) {
-			address, err := sanitiseAddress(rawAddress)
-			if err != nil {
-				return
-			}
-			addresses = append(addresses, address)
-		}
-	})
+		addresses = append(addresses, address)
+	}
 	return addresses
 }
 
@@ -90,11 +81,12 @@ func (crawler *Crawler) scrapeNext() {
 	if err != nil {
 		return
 	}
-	doc, err := goquery.NewDocumentFromResponse(res)
+	defer res.Body.Close()
+	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return
 	}
-	crawler.storeAddresses(findAddresses(doc))
+	crawler.storeAddresses(findAddresses(string(data)))
 }
 
 func (crawler *Crawler) crawl() {

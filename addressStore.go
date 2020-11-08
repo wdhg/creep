@@ -28,8 +28,7 @@ func newAddressStore(queueSize int) *addressStore {
 	}
 }
 
-// next searches `addresses` for an unvisited address, flags it as visited, and
-// returns it
+// next searches `addresses` for an unvisited address
 func (s *addressStore) next() (string, bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()

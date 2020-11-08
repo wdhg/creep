@@ -7,18 +7,24 @@ import (
 	"sync"
 )
 
+type page struct {
+	address string
+	visited bool
+	linksTo []string
+}
+
 type addressStore struct {
-	addresses map[string]bool
-	count     int
-	lock      sync.Mutex
+	pages map[string]page
+	count int
+	lock  sync.Mutex
 }
 
 // newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
-		addresses: make(map[string]bool),
-		lock:      sync.Mutex{},
-		count:     0,
+		pages: make(map[string]page),
+		lock:  sync.Mutex{},
+		count: 0,
 	}
 }
 
@@ -27,10 +33,9 @@ func newAddressStore(queueSize int) *addressStore {
 func (s *addressStore) next() (string, bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	for address, hasBeenScraped := range s.addresses {
-		if !hasBeenScraped {
-			s.addresses[address] = true
-			return address, true
+	for _, p := range s.pages {
+		if !p.visited {
+			return p.address, true
 		}
 	}
 	return "", false
@@ -38,14 +43,30 @@ func (s *addressStore) next() (string, bool) {
 
 // add adds an address to the addressStore if it isnt already in it and
 // increments `count`
-func (s *addressStore) add(address string) {
+func (s *addressStore) add(address string, linkedFrom string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if _, ok := s.addresses[address]; ok {
-		return
+	// add address to linkedFrom's linksTo
+	if p, ok := s.pages[linkedFrom]; ok {
+		p.linksTo = append(p.linksTo, address)
+		p.visited = true
+		s.pages[linkedFrom] = p
+	} else {
+		s.pages[linkedFrom] = page{
+			address: linkedFrom,
+			visited: true,
+			linksTo: []string{address},
+		}
 	}
-	s.addresses[address] = false
-	s.count++
+	// keep track of address
+	if _, ok := s.pages[address]; !ok {
+		s.pages[address] = page{
+			address: address,
+			visited: false,
+			linksTo: []string{},
+		}
+		s.count++
+	}
 }
 
 // dumpToFile saves all found addresses to a file
@@ -75,9 +96,13 @@ func (s *addressStore) dumpToString() string {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	builder := strings.Builder{}
-	for address := range s.addresses {
-		builder.WriteString(address)
+	for _, p := range s.pages {
+		builder.WriteString(p.address)
 		builder.WriteString("\n")
+		for _, address := range p.linksTo {
+			builder.WriteString(address)
+			builder.WriteString("\n")
+		}
 	}
 	return builder.String()
 }

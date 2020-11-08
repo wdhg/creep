@@ -43,7 +43,6 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 		reHost:  reHost,
 		logging: logging,
 	}
-	crawler.store.add(start)
 	return crawler, nil
 }
 
@@ -62,7 +61,8 @@ func (crawler *Crawler) dump(output string) error {
 
 // run causes the Crawler to run with `threadCount` extra threads until
 // `maxCount` addresses have been found
-func (crawler *Crawler) run(maxCount int, threadCount int) {
+func (crawler *Crawler) run(start string, maxCount int, threadCount int) {
+	crawler.scrape(start) // kick start the process
 	crawler.wg.Add(threadCount)
 	for i := 0; i < threadCount; i++ {
 		go crawler.crawl(maxCount)
@@ -98,18 +98,18 @@ func (crawler *Crawler) scrape(address string) {
 	if err != nil {
 		return
 	}
-	crawler.storeAddresses(crawler.findAddresses(string(data)))
+	crawler.storeAddresses(crawler.findAddresses(string(data)), address)
 }
 
 // storeAddresses adds all addresses that match `reHost` to `addressStore`
-func (crawler *Crawler) storeAddresses(addresses []string) {
+func (crawler *Crawler) storeAddresses(addresses []string, linkedFrom string) {
 	for _, address := range addresses {
 		u, err := url.Parse(address)
 		if err != nil {
 			continue
 		}
 		if crawler.reHost.MatchString(u.Hostname()) {
-			crawler.store.add(address)
+			crawler.store.add(address, linkedFrom)
 		}
 	}
 }

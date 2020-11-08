@@ -13,6 +13,7 @@ type addressStore struct {
 	lock      sync.Mutex
 }
 
+// newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
 		addresses: make(map[string]bool),
@@ -21,6 +22,8 @@ func newAddressStore(queueSize int) *addressStore {
 	}
 }
 
+// next searches `addresses` for an unvisited address, flags it as visited, and
+// returns it
 func (s *addressStore) next() (string, bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -33,6 +36,8 @@ func (s *addressStore) next() (string, bool) {
 	return "", false
 }
 
+// add adds an address to the addressStore if it isnt already in it and
+// increments `count`
 func (s *addressStore) add(address string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -43,6 +48,7 @@ func (s *addressStore) add(address string) {
 	s.count++
 }
 
+// dumpToFile saves all found addresses to a file
 func (s *addressStore) dumpToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -59,6 +65,12 @@ func (s *addressStore) dumpToFile(filename string) error {
 	return nil
 }
 
+// dumpToTerminal outputs all found addresses to the terminal
+func (s *addressStore) dumpToTerminal() {
+	fmt.Println(s.dumpToString())
+}
+
+// dumpToString joins all addresses into one large string
 func (s *addressStore) dumpToString() string {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -68,8 +80,4 @@ func (s *addressStore) dumpToString() string {
 		builder.WriteString("\n")
 	}
 	return builder.String()
-}
-
-func (s *addressStore) dumpToTerminal() {
-	fmt.Println(s.dumpToString())
 }

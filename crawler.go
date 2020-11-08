@@ -23,6 +23,7 @@ type Crawler struct {
 	logging bool
 }
 
+// newCrawler creates a Crawler with a new addressStore and pre-compiled regexps
 func newCrawler(start string, timeout int64, queueSize int, selectorHost string, logging bool) (*Crawler, error) {
 	crawler := &Crawler{
 		client: http.Client{
@@ -38,6 +39,7 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 	return crawler, nil
 }
 
+// dump dumps all the found addresses either to the terminal or to a file
 func (crawler *Crawler) dump(output string) error {
 	if output == "" {
 		crawler.store.dumpToTerminal()
@@ -50,6 +52,8 @@ func (crawler *Crawler) dump(output string) error {
 	return nil
 }
 
+// run causes the Crawler to run with `threadCount` extra threads until
+// `maxCount` addresses have been found
 func (crawler *Crawler) run(maxCount int, threadCount int) {
 	crawler.wg.Add(threadCount)
 	for i := 0; i < threadCount; i++ {
@@ -58,6 +62,8 @@ func (crawler *Crawler) run(maxCount int, threadCount int) {
 	crawler.wg.Wait()
 }
 
+// crawl constantly GETs pages, scrapes any addresses in them, and adds them to
+// the `addressStore` until `maxCount` addresses are found
 func (crawler *Crawler) crawl(maxCount int) {
 	defer crawler.wg.Done()
 	for crawler.store.count < maxCount {
@@ -65,6 +71,8 @@ func (crawler *Crawler) crawl(maxCount int) {
 	}
 }
 
+// scrapeNext gets an unvisited address, GETs it, and scrapes any addresses from
+// its content
 func (crawler *Crawler) scrapeNext() {
 	address, ok := crawler.store.next()
 	if !ok {
@@ -85,6 +93,7 @@ func (crawler *Crawler) scrapeNext() {
 	crawler.storeAddresses(crawler.findAddresses(string(data)))
 }
 
+// storeAddresses adds all addresses that match `reHost` to `addressStore`
 func (crawler *Crawler) storeAddresses(addresses []string) {
 	for _, address := range addresses {
 		u, err := url.Parse(address)
@@ -97,6 +106,7 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 	}
 }
 
+// findAddresses scrapes all url addresses from the text using regex
 func (crawler *Crawler) findAddresses(html string) []string {
 	addresses := []string{}
 	for _, submatch := range crawler.reURL.FindAllStringSubmatch(html, -1) {

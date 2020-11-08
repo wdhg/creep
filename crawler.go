@@ -25,14 +25,22 @@ type Crawler struct {
 
 // newCrawler creates a Crawler with a new addressStore and pre-compiled regexps
 func newCrawler(start string, timeout int64, queueSize int, selectorHost string, logging bool) (*Crawler, error) {
+	reURL, err := regexp.Compile(selectorURL)
+	if err != nil {
+		return nil, err
+	}
+	reHost, err := regexp.Compile(selectorHost)
+	if err != nil {
+		return nil, err
+	}
 	crawler := &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
 		store:   newAddressStore(queueSize),
 		wg:      sync.WaitGroup{},
-		reURL:   regexp.MustCompile(selectorURL),
-		reHost:  regexp.MustCompile(selectorHost),
+		reURL:   reURL,
+		reHost:  reHost,
 		logging: logging,
 	}
 	crawler.store.add(start)

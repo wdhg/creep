@@ -11,10 +11,11 @@ type page struct {
 	address string
 	visited bool
 	linksTo []string
+	lock    sync.Mutex
 }
 
 type addressStore struct {
-	pages map[string]page
+	pages map[string]*page
 	count int
 	lock  sync.Mutex
 }
@@ -22,7 +23,7 @@ type addressStore struct {
 // newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
-		pages: make(map[string]page),
+		pages: make(map[string]*page),
 		lock:  sync.Mutex{},
 		count: 0,
 	}
@@ -34,9 +35,13 @@ func (s *addressStore) next() (string, bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, p := range s.pages {
+		p.lock.Lock()
 		if !p.visited {
+			p.visited = true
+			p.lock.Unlock()
 			return p.address, true
 		}
+		p.lock.Unlock()
 	}
 	return "", false
 }
@@ -44,26 +49,27 @@ func (s *addressStore) next() (string, bool) {
 // add adds an address to the addressStore if it isnt already in it and
 // increments `count`
 func (s *addressStore) add(address string, linkedFrom string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	// add address to linkedFrom's linksTo
 	if p, ok := s.pages[linkedFrom]; ok {
+		p.lock.Lock()
 		p.linksTo = append(p.linksTo, address)
-		p.visited = true
 		s.pages[linkedFrom] = p
+		p.lock.Unlock()
 	} else {
-		s.pages[linkedFrom] = page{
+		s.pages[linkedFrom] = &page{
 			address: linkedFrom,
 			visited: true,
 			linksTo: []string{address},
+			lock:    sync.Mutex{},
 		}
 	}
 	// keep track of address
 	if _, ok := s.pages[address]; !ok {
-		s.pages[address] = page{
+		s.pages[address] = &page{
 			address: address,
 			visited: false,
 			linksTo: []string{},
+			lock:    sync.Mutex{},
 		}
 		s.count++
 	}

@@ -67,17 +67,17 @@ func (crawler *Crawler) run(maxCount int, threadCount int) {
 func (crawler *Crawler) crawl(maxCount int) {
 	defer crawler.wg.Done()
 	for crawler.store.count < maxCount {
-		crawler.scrapeNext()
+		address, ok := crawler.store.next()
+		if !ok {
+			continue
+		}
+		crawler.scrape(address)
 	}
 }
 
 // scrapeNext gets an unvisited address, GETs it, and scrapes any addresses from
 // its content
-func (crawler *Crawler) scrapeNext() {
-	address, ok := crawler.store.next()
-	if !ok {
-		return
-	}
+func (crawler *Crawler) scrape(address string) {
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}

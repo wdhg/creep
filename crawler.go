@@ -77,7 +77,10 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 }
 
 func (crawler *Crawler) scrapeNext() {
-	address := crawler.store.next()
+	address, ok := crawler.store.next()
+	if !ok {
+		return
+	}
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}

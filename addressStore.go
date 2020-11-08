@@ -11,7 +11,6 @@ type addressStore struct {
 	addresses map[string]bool
 	count     int
 	lock      sync.Mutex
-	queue     chan string
 }
 
 func newAddressStore(queueSize int) *addressStore {
@@ -19,28 +18,29 @@ func newAddressStore(queueSize int) *addressStore {
 		addresses: make(map[string]bool),
 		lock:      sync.Mutex{},
 		count:     0,
-		queue:     make(chan string, queueSize),
 	}
 }
 
-func (s *addressStore) next() string {
-	return <-s.queue
+func (s *addressStore) next() (string, bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for address, hasBeenScraped := range s.addresses {
+		if !hasBeenScraped {
+			s.addresses[address] = true
+			return address, true
+		}
+	}
+	return "", false
 }
 
 func (s *addressStore) add(address string) {
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	if _, ok := s.addresses[address]; ok {
-		s.lock.Unlock()
 		return
 	}
 	s.addresses[address] = false
 	s.count++
-	s.lock.Unlock()
-	if len(s.queue) < cap(s.queue) {
-		go func() {
-			s.queue <- address
-		}()
-	}
 }
 
 func (s *addressStore) dumpToString() string {

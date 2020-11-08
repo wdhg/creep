@@ -16,14 +16,14 @@ type page struct {
 type addressStore struct {
 	pages map[string]page
 	count int
-	lock  sync.Mutex
+	lock  sync.RWMutex
 }
 
 // newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
 		pages: make(map[string]page),
-		lock:  sync.Mutex{},
+		lock:  sync.RWMutex{},
 		count: 0,
 	}
 }
@@ -31,8 +31,8 @@ func newAddressStore(queueSize int) *addressStore {
 // next searches `addresses` for an unvisited address, flags it as visited, and
 // returns it
 func (s *addressStore) next() (string, bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	for _, p := range s.pages {
 		if !p.visited {
 			return p.address, true
@@ -93,8 +93,8 @@ func (s *addressStore) dumpToTerminal() {
 
 // dumpToString joins all addresses into one large string
 func (s *addressStore) dumpToString() string {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	builder := strings.Builder{}
 	for _, p := range s.pages {
 		builder.WriteString(p.address)

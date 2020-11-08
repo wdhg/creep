@@ -43,21 +43,6 @@ func (s *addressStore) add(address string) {
 	s.count++
 }
 
-func (s *addressStore) dumpToString() string {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	builder := strings.Builder{}
-	for address := range s.addresses {
-		builder.WriteString(address)
-		builder.WriteString("\n")
-	}
-	return builder.String()
-}
-
-func (s *addressStore) dumpToTerminal() {
-	fmt.Println(s.dumpToString())
-}
-
 func (s *addressStore) dumpToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -72,4 +57,19 @@ func (s *addressStore) dumpToFile(filename string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *addressStore) dumpToString() string {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	builder := strings.Builder{}
+	for address := range s.addresses {
+		builder.WriteString(address)
+		builder.WriteString("\n")
+	}
+	return builder.String()
+}
+
+func (s *addressStore) dumpToTerminal() {
+	fmt.Println(s.dumpToString())
 }

@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	selectorURL    = `href=["'](https?:\/\/[a-zA-Z0-9\.\-]+[^"']*)["']`
-	selectorDomain = `[a-zA-Z0-9\.\-]*\b([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+)\b`
+	selectorURL = `href=["'](https?:\/\/[a-zA-Z0-9\.\-]+[^"']*)["']`
 )
 
 type Crawler struct {

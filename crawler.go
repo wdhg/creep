@@ -107,9 +107,9 @@ func (crawler *Crawler) storeAddresses(addresses []string) {
 }
 
 // findAddresses scrapes all url addresses from the text using regex
-func (crawler *Crawler) findAddresses(html string) []string {
+func (crawler *Crawler) findAddresses(content string) []string {
 	addresses := []string{}
-	for _, submatch := range crawler.reURL.FindAllStringSubmatch(html, -1) {
+	for _, submatch := range crawler.reURL.FindAllStringSubmatch(content, -1) {
 		address, err := sanitiseAddress(submatch[1])
 		if err != nil {
 			continue

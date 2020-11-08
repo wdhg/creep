@@ -32,5 +32,8 @@ func main() {
 	if crawler.logging {
 		log.Printf("Found %d urls in %.3f seconds\n", crawler.store.count, time.Since(startTime).Seconds())
 	}
-	crawler.dump(*output)
+	err = crawler.dump(*output)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

@@ -9,6 +9,7 @@ import (
 func main() {
 	help := flag.Bool("h", false, "Show help")
 	start := flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
+	restrictToStart := flag.Bool("r", false, "Restricts crawling to specified start site")
 	maxCount := flag.Int("n", 100, "Number of urls to scrape")
 	threadCount := flag.Int("tc", 10, "Number of threads")
 	timeout := flag.Int64("t", 5000, "Timeout for each http request (ms)")
@@ -19,7 +20,10 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler := newCrawler(*start, *timeout, *threadCount, *logging)
+	crawler, err := newCrawler(*start, *timeout, *threadCount, *restrictToStart, *logging)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	startTime := time.Now()
 	if crawler.logging {
 		log.Printf("Crawling for %d urls...\n", *maxCount)

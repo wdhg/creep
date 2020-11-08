@@ -11,31 +11,41 @@ import (
 )
 
 const (
-	selectorURL = `href=["'](https?:\/\/[a-zA-Z0-9\.\-]+[^"']*)["']`
+	selectorURL    = `href=["'](https?:\/\/[a-zA-Z0-9\.\-]+[^"']*)["']`
+	selectorDomain = `[a-zA-Z0-9\.\-]*\b([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+)\b`
 )
 
 var (
-	reURL = regexp.MustCompile(selectorURL)
+	reURL    = regexp.MustCompile(selectorURL)
+	reDomain = regexp.MustCompile(selectorDomain)
 )
 
 type Crawler struct {
-	client  http.Client
-	store   *addressStore
-	logging bool
-	wg      sync.WaitGroup
+	client           http.Client
+	store            *addressStore
+	wg               sync.WaitGroup
+	restricted       bool
+	restrictedDomain string
+	logging          bool
 }
 
-func newCrawler(start string, timeout int64, queueSize int, logging bool) *Crawler {
+func newCrawler(start string, timeout int64, queueSize int, restricted bool, logging bool) (*Crawler, error) {
 	crawler := &Crawler{
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		store:   newAddressStore(queueSize),
-		logging: logging,
-		wg:      sync.WaitGroup{},
+		store:            newAddressStore(queueSize),
+		wg:               sync.WaitGroup{},
+		restricted:       restricted,
+		restrictedDomain: domain(start),
+		logging:          logging,
 	}
 	crawler.store.add(start)
-	return crawler
+	return crawler, nil
+}
+
+func domain(address string) string {
+	return reDomain.FindStringSubmatch(address)[1]
 }
 
 // sanitiseAddress removes the query, fragment, and any trailing forward slashes
@@ -66,6 +76,9 @@ func findAddresses(html string) []string {
 
 func (crawler *Crawler) storeAddresses(addresses []string) {
 	for _, address := range addresses {
+		if crawler.restricted && domain(address) != crawler.restrictedDomain {
+			continue
+		}
 		crawler.store.add(address)
 	}
 }

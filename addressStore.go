@@ -7,34 +7,29 @@ import (
 	"sync"
 )
 
-type page struct {
-	address string
-	visited bool
-	linksTo []string
-}
-
 type addressStore struct {
-	pages map[string]page
-	count int
-	lock  sync.RWMutex
+	addresses map[string]bool
+	count     int
+	lock      sync.Mutex
 }
 
 // newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
-		pages: make(map[string]page),
-		lock:  sync.RWMutex{},
-		count: 0,
+		addresses: make(map[string]bool),
+		count:     0,
+		lock:      sync.Mutex{},
 	}
 }
 
 // next searches `addresses` for an unvisited address
 func (s *addressStore) next() (string, bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	for _, p := range s.pages {
-		if !p.visited {
-			return p.address, true
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for address, hasBeenScraped := range s.addresses {
+		if !hasBeenScraped {
+			s.addresses[address] = true
+			return address, true
 		}
 	}
 	return "", false
@@ -42,30 +37,14 @@ func (s *addressStore) next() (string, bool) {
 
 // add adds an address to the addressStore if it isnt already in it and
 // increments `count`
-func (s *addressStore) add(address string, linkedFrom string) {
+func (s *addressStore) add(address string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	// add address to linkedFrom's linksTo
-	if p, ok := s.pages[linkedFrom]; ok {
-		p.linksTo = append(p.linksTo, address)
-		p.visited = true
-		s.pages[linkedFrom] = p
-	} else {
-		s.pages[linkedFrom] = page{
-			address: linkedFrom,
-			visited: true,
-			linksTo: []string{address},
-		}
+	if _, ok := s.addresses[address]; ok {
+		return
 	}
-	// keep track of address
-	if _, ok := s.pages[address]; !ok {
-		s.pages[address] = page{
-			address: address,
-			visited: false,
-			linksTo: []string{},
-		}
-		s.count++
-	}
+	s.addresses[address] = false
+	s.count++
 }
 
 // dumpToFile saves all found addresses to a file
@@ -92,16 +71,12 @@ func (s *addressStore) dumpToTerminal() {
 
 // dumpToString joins all addresses into one large string
 func (s *addressStore) dumpToString() string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	builder := strings.Builder{}
-	for _, p := range s.pages {
-		builder.WriteString(p.address)
+	for address := range s.addresses {
+		builder.WriteString(address)
 		builder.WriteString("\n")
-		for _, address := range p.linksTo {
-			builder.WriteString(address)
-			builder.WriteString("\n")
-		}
 	}
 	return builder.String()
 }

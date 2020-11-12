@@ -16,12 +16,12 @@ const (
 )
 
 type Crawler struct {
-	client  http.Client
-	store   *addressStore
-	wg      sync.WaitGroup
-	reURL   *regexp.Regexp
-	reHost  *regexp.Regexp
-	logging bool
+	client     http.Client
+	store      *addressStore
+	wg         sync.WaitGroup
+	reURL      *regexp.Regexp
+	reHostname *regexp.Regexp
+	logging    bool
 }
 
 // newCrawler creates a Crawler with a new addressStore and pre-compiled regexps
@@ -30,7 +30,7 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 	if err != nil {
 		return nil, err
 	}
-	reHost, err := regexp.Compile(selectorHost)
+	reHostname, err := regexp.Compile(selectorHost)
 	if err != nil {
 		return nil, err
 	}
@@ -38,11 +38,11 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		store:   newAddressStore(queueSize),
-		wg:      sync.WaitGroup{},
-		reURL:   reURL,
-		reHost:  reHost,
-		logging: logging,
+		store:      newAddressStore(queueSize),
+		wg:         sync.WaitGroup{},
+		reURL:      reURL,
+		reHostname: reHostname,
+		logging:    logging,
 	}
 	crawler.store.add(start)
 	return crawler, nil
@@ -97,33 +97,23 @@ func (crawler *Crawler) scrape(address string) {
 	if err != nil {
 		return
 	}
-	crawler.storeAddresses(crawler.findAddresses(string(data)))
+	crawler.storeAddresses(string(data))
 }
 
-// storeAddresses adds all addresses that match `reHost` to `addressStore`
-func (crawler *Crawler) storeAddresses(addresses []string) {
-	for _, address := range addresses {
-		u, err := url.Parse(address)
-		if err != nil {
-			continue
-		}
-		if crawler.reHost.MatchString(u.Hostname()) {
-			crawler.store.add(address)
-		}
-	}
-}
-
-// findAddresses scrapes all url addresses from the text using regex
-func (crawler *Crawler) findAddresses(content string) []string {
-	addresses := []string{}
+// storeAddresses scrapes all url addresses from the content using regex and
+// stores them in store
+func (crawler *Crawler) storeAddresses(content string) {
 	for _, submatch := range crawler.reURL.FindAllStringSubmatch(content, -1) {
 		address, err := sanitiseAddress(submatch[1])
 		if err != nil {
 			continue
 		}
-		addresses = append(addresses, address)
+		u, err := url.Parse(address)
+		if !crawler.reHostname.MatchString(u.Hostname()) {
+			continue
+		}
+		crawler.store.add(address)
 	}
-	return addresses
 }
 
 // sanitiseAddress removes the query, fragment, and any trailing forward slashes

@@ -72,22 +72,17 @@ func (crawler *Crawler) run(maxCount int, threadCount int) {
 // crawl constantly GETs pages, scrapes any addresses in them, and adds them to
 // the `addressStore` until `maxCount` addresses are found
 func (crawler *Crawler) crawl(maxCount int) {
-	defer crawler.wg.Done()
-	for {
-		address, ok := crawler.store.next()
-		if !ok {
-			continue
-		}
-		full := crawler.scrape(address)
-		if full {
-			break
-		}
+	full := false
+	for !full {
+		full = crawler.scrape()
 	}
+	crawler.wg.Done()
 }
 
 // scrapeNext gets an unvisited address, GETs it, and scrapes any addresses from
 // its content
-func (crawler *Crawler) scrape(address string) bool {
+func (crawler *Crawler) scrape() bool {
+	address := crawler.store.next()
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}

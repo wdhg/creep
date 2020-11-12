@@ -6,56 +6,44 @@ import (
 	"sync"
 )
 
-type visited bool
-
-const (
-	beenVisited = true
-	notVisited  = false
-)
-
 type addressStore struct {
-	addresses map[string]visited
+	addresses map[string]bool
 	maxCount  int
 	count     int
 	lock      sync.Mutex
+	c         chan string
 }
 
 // newAddressStore makes a new addressStore
 func newAddressStore(maxCount int) *addressStore {
 	return &addressStore{
-		addresses: make(map[string]visited),
+		addresses: make(map[string]bool),
 		maxCount:  maxCount,
 		count:     0,
 		lock:      sync.Mutex{},
+		c:         make(chan string, maxCount),
 	}
 }
 
 // next searches `addresses` for an unvisited address
-func (s *addressStore) next() (string, bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	for address, hasBeenVisited := range s.addresses {
-		if !hasBeenVisited {
-			s.addresses[address] = beenVisited
-			return address, true
-		}
-	}
-	return "", false
+func (s *addressStore) next() string {
+	return <-s.c
 }
 
 // add adds an address to the addressStore if it isnt already in it and
 // increments `count`
 func (s *addressStore) add(address string) bool {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	if s.count >= s.maxCount {
 		return true
 	}
 	if _, ok := s.addresses[address]; ok {
 		return false
 	}
-	s.addresses[address] = notVisited
+	s.lock.Lock()
+	s.addresses[address] = true
 	s.count++
+	s.lock.Unlock()
+	s.c <- address
 	return false
 }
 

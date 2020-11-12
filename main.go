@@ -7,14 +7,14 @@ import (
 )
 
 func main() {
-	threadCount := flag.Int("c", 10, "Number of threads")
-	help := flag.Bool("h", false, "Show help")
-	logging := flag.Bool("l", false, "Enables logging")
-	maxCount := flag.Int("n", 100, "Number of urls to scrape")
-	output := flag.String("o", "", "Name of output file to write to. If not set will output to terminal")
-	hostRegex := flag.String("r", ".*", "Restricts crawling to specified hostname regex")
-	start := flag.String("s", "https://news.ycombinator.com", "The site to start crawling from")
-	timeout := flag.Int64("t", 5000, "Timeout for each http request (ms)")
+	threadCount := flag.Int("threads", 10, "Number of threads")
+	help := flag.Bool("help", false, "Show help")
+	logging := flag.Bool("log", false, "Enables logging")
+	maxCount := flag.Int("max", 100, "Number of urls to scrape")
+	output := flag.String("output", "", "Name of output file to write to. If not set will output to terminal")
+	hostRegex := flag.String("hostname", ".*", "Restricts crawling to specified hostname regex")
+	start := flag.String("start", "https://news.ycombinator.com", "The site to start crawling from")
+	timeout := flag.Int64("timeout", 5000, "Timeout for each http request (ms)")
 	flag.Parse()
 	if *help {
 		flag.Usage()

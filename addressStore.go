@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"strings"
+	"bytes"
+	"io"
 	"sync"
 )
 
@@ -47,36 +46,14 @@ func (s *addressStore) add(address string) {
 	s.count++
 }
 
-// dumpToFile saves all found addresses to a file
-func (s *addressStore) dumpToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	_, err = f.WriteString(s.dumpToString())
-	if err != nil {
-		return err
-	}
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// dumpToTerminal outputs all found addresses to the terminal
-func (s *addressStore) dumpToTerminal() {
-	fmt.Println(s.dumpToString())
-}
-
-// dumpToString joins all addresses into one large string
-func (s *addressStore) dumpToString() string {
+// dumpTo joins all addresses into one large string and writes it to the writer
+func (s *addressStore) dumpTo(writer io.Writer) (int, error) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
-	builder := strings.Builder{}
+	b := bytes.Buffer{}
 	for address := range s.addresses {
-		builder.WriteString(address)
-		builder.WriteString("\n")
+		b.WriteString(address)
+		b.WriteString("\n")
 	}
-	return builder.String()
+	s.lock.Unlock()
+	return writer.Write(b.Bytes())
 }

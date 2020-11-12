@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -48,16 +49,14 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 }
 
 // dump dumps all the found addresses either to the terminal or to a file
-func (crawler *Crawler) dump(output string) error {
-	if output == "" {
-		crawler.store.dumpToTerminal()
-	} else {
-		err := crawler.store.dumpToFile(output)
-		if err != nil {
-			return err
-		}
+func (crawler *Crawler) dump(filename string) error {
+	file, err := getDumpFile(filename)
+	if err != nil {
+		return err
 	}
-	return nil
+	defer file.Close()
+	_, err = crawler.store.dumpTo(file)
+	return err
 }
 
 // run causes the Crawler to run with `threadCount` extra threads until
@@ -139,4 +138,11 @@ func sanitiseAddress(address string) (string, error) {
 		u.Path = u.Path[0 : len(u.Path)-1]
 	}
 	return u.String(), nil
+}
+
+func getDumpFile(filename string) (*os.File, error) {
+	if filename == "" {
+		return os.Stdout, nil
+	}
+	return os.Create(filename)
 }

@@ -6,8 +6,15 @@ import (
 	"sync"
 )
 
+type visited bool
+
+const (
+	beenVisited = true
+	notVisited  = false
+)
+
 type addressStore struct {
-	addresses map[string]bool
+	addresses map[string]visited
 	count     int
 	lock      sync.Mutex
 }
@@ -15,7 +22,7 @@ type addressStore struct {
 // newAddressStore makes a new addressStore
 func newAddressStore(queueSize int) *addressStore {
 	return &addressStore{
-		addresses: make(map[string]bool),
+		addresses: make(map[string]visited),
 		count:     0,
 		lock:      sync.Mutex{},
 	}
@@ -25,9 +32,9 @@ func newAddressStore(queueSize int) *addressStore {
 func (s *addressStore) next() (string, bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	for address, hasBeenScraped := range s.addresses {
-		if !hasBeenScraped {
-			s.addresses[address] = true
+	for address, hasBeenVisited := range s.addresses {
+		if !hasBeenVisited {
+			s.addresses[address] = beenVisited
 			return address, true
 		}
 	}
@@ -42,7 +49,7 @@ func (s *addressStore) add(address string) {
 	if _, ok := s.addresses[address]; ok {
 		return
 	}
-	s.addresses[address] = false
+	s.addresses[address] = notVisited
 	s.count++
 }
 

@@ -25,7 +25,7 @@ type Crawler struct {
 }
 
 // newCrawler creates a Crawler with a new addressStore and pre-compiled regexps
-func newCrawler(start string, timeout int64, queueSize int, selectorHost string, logging bool) (*Crawler, error) {
+func newCrawler(start string, timeout int64, maxCount int, selectorHost string, logging bool) (*Crawler, error) {
 	reURL, err := regexp.Compile(selectorURL)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func newCrawler(start string, timeout int64, queueSize int, selectorHost string,
 		client: http.Client{
 			Timeout: time.Duration(timeout) * time.Millisecond,
 		},
-		store:      newAddressStore(queueSize),
+		store:      newAddressStore(maxCount),
 		wg:         sync.WaitGroup{},
 		reURL:      reURL,
 		reHostname: reHostname,
@@ -73,36 +73,39 @@ func (crawler *Crawler) run(maxCount int, threadCount int) {
 // the `addressStore` until `maxCount` addresses are found
 func (crawler *Crawler) crawl(maxCount int) {
 	defer crawler.wg.Done()
-	for crawler.store.count < maxCount {
+	for {
 		address, ok := crawler.store.next()
 		if !ok {
 			continue
 		}
-		crawler.scrape(address)
+		full := crawler.scrape(address)
+		if full {
+			break
+		}
 	}
 }
 
 // scrapeNext gets an unvisited address, GETs it, and scrapes any addresses from
 // its content
-func (crawler *Crawler) scrape(address string) {
+func (crawler *Crawler) scrape(address string) bool {
 	if crawler.logging {
 		log.Printf("Scraping %s...\n", address)
 	}
 	res, err := crawler.client.Get(address)
 	if err != nil {
-		return
+		return false
 	}
 	defer res.Body.Close()
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return
+		return false
 	}
-	crawler.storeAddresses(string(data))
+	return crawler.storeAddresses(string(data))
 }
 
 // storeAddresses scrapes all url addresses from the content using regex and
 // stores them in store
-func (crawler *Crawler) storeAddresses(content string) {
+func (crawler *Crawler) storeAddresses(content string) bool {
 	for _, submatch := range crawler.reURL.FindAllStringSubmatch(content, -1) {
 		address, err := sanitiseAddress(submatch[1])
 		if err != nil {
@@ -112,8 +115,12 @@ func (crawler *Crawler) storeAddresses(content string) {
 		if !crawler.reHostname.MatchString(u.Hostname()) {
 			continue
 		}
-		crawler.store.add(address)
+		full := crawler.store.add(address)
+		if full {
+			return true
+		}
 	}
+	return false
 }
 
 // sanitiseAddress removes the query, fragment, and any trailing forward slashes

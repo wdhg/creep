@@ -20,7 +20,7 @@ func main() {
 		flag.Usage()
 		return
 	}
-	crawler, err := newCrawler(*start, *timeout, *threadCount, *hostRegex, *logging)
+	crawler, err := newCrawler(*start, *timeout, *maxCount, *hostRegex, *logging)
 	if err != nil {
 		log.Fatalln(err)
 	}

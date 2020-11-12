@@ -33,13 +33,15 @@ func (s *addressStore) next() string {
 // add adds an address to the addressStore if it isnt already in it and
 // increments `count`
 func (s *addressStore) add(address string) bool {
+	s.lock.Lock()
 	if s.count >= s.maxCount {
+		s.lock.Unlock()
 		return true
 	}
 	if _, ok := s.addresses[address]; ok {
+		s.lock.Unlock()
 		return false
 	}
-	s.lock.Lock()
 	s.addresses[address] = true
 	s.count++
 	s.lock.Unlock()

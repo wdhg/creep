@@ -28,7 +28,7 @@ func main() {
 	if crawler.logging {
 		log.Printf("Crawling for %d urls...\n", *maxCount)
 	}
-	crawler.run(*maxCount, *threadCount)
+	crawler.run(*threadCount)
 	if crawler.logging {
 		log.Printf("Finished in %.3f seconds\n", time.Since(startTime).Seconds())
 	}

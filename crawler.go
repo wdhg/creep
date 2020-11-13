@@ -61,17 +61,17 @@ func (crawler *Crawler) dump(filename string) error {
 
 // run causes the Crawler to run with `threadCount` extra threads until
 // `maxCount` addresses have been found
-func (crawler *Crawler) run(maxCount int, threadCount int) {
+func (crawler *Crawler) run(threadCount int) {
 	crawler.wg.Add(threadCount)
 	for i := 0; i < threadCount; i++ {
-		go crawler.crawl(maxCount)
+		go crawler.crawl()
 	}
 	crawler.wg.Wait()
 }
 
 // crawl constantly GETs pages, scrapes any addresses in them, and adds them to
 // the `addressStore` until `maxCount` addresses are found
-func (crawler *Crawler) crawl(maxCount int) {
+func (crawler *Crawler) crawl() {
 	full := false
 	for !full {
 		full = crawler.scrape()
